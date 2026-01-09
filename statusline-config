@@ -1,0 +1,401 @@
+#!/bin/bash
+
+# ============================================================================
+# Claude Status Line Configuration Tool
+# ============================================================================
+# A CLI tool to configure the Claude Code status line.
+# Usage: statusline-config <command> [options]
+# ============================================================================
+
+set -e
+
+CONFIG_FILE="$HOME/.claude/statusline.conf"
+DEFAULT_CONFIG="$(dirname "$0")/statusline.conf.default"
+
+# Colors for CLI output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+RESET='\033[0m'
+
+# Available elements
+ELEMENTS=(
+    "model"
+    "directory"
+    "git_branch"
+    "context"
+    "duration"
+    "api_duration"
+    "code_changes"
+    "session_cost"
+    "weekly_cost"
+    "lifetime_cost"
+    "btc"
+)
+
+# Available colors
+COLORS=(
+    "black" "red" "green" "yellow" "blue" "magenta" "cyan" "white"
+    "bright_black" "bright_red" "bright_green" "bright_yellow"
+    "bright_blue" "bright_magenta" "bright_cyan" "bright_white"
+)
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+print_usage() {
+    cat << 'EOF'
+Claude Status Line Configuration Tool
+
+Usage: statusline-config <command> [arguments]
+
+Commands:
+  show                      Show current configuration
+  enable <element>          Enable an element
+  disable <element>         Disable an element
+  color <element> <color>   Set color for an element
+  set <key> <value>         Set a configuration value
+  reset                     Reset to default configuration
+  list                      List available elements and colors
+  help                      Show this help message
+
+Elements:
+  model, directory, git_branch, context, duration, api_duration,
+  code_changes, session_cost, weekly_cost, lifetime_cost, btc
+
+Colors:
+  black, red, green, yellow, blue, magenta, cyan, white
+  bright_black, bright_red, bright_green, bright_yellow,
+  bright_blue, bright_magenta, bright_cyan, bright_white
+
+Examples:
+  statusline-config show
+  statusline-config disable btc
+  statusline-config enable btc
+  statusline-config color model red
+  statusline-config color context_low yellow
+  statusline-config set BTC_CACHE_TTL 60
+  statusline-config reset
+
+EOF
+}
+
+ensure_config_exists() {
+    if [ ! -f "$CONFIG_FILE" ]; then
+        if [ -f "$DEFAULT_CONFIG" ]; then
+            cp "$DEFAULT_CONFIG" "$CONFIG_FILE"
+            echo -e "${GREEN}Created config file: $CONFIG_FILE${RESET}"
+        else
+            echo -e "${RED}Error: Default config not found at $DEFAULT_CONFIG${RESET}"
+            exit 1
+        fi
+    fi
+}
+
+is_valid_element() {
+    local element="$1"
+    for e in "${ELEMENTS[@]}"; do
+        if [ "$e" = "$element" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+is_valid_color() {
+    local color="$1"
+    for c in "${COLORS[@]}"; do
+        if [ "$c" = "$color" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+get_var_name() {
+    local element="$1"
+    local upper=$(echo "$element" | tr '[:lower:]' '[:upper:]')
+    echo "SHOW_${upper}"
+}
+
+get_color_var_name() {
+    local element="$1"
+    local upper=$(echo "$element" | tr '[:lower:]' '[:upper:]')
+    echo "COLOR_${upper}"
+}
+
+# Update a value in the config file
+update_config() {
+    local key="$1"
+    local value="$2"
+
+    if grep -q "^${key}=" "$CONFIG_FILE"; then
+        # Use a temp file for atomic update
+        sed "s/^${key}=.*/${key}=${value}/" "$CONFIG_FILE" > "${CONFIG_FILE}.tmp"
+        mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+    else
+        # Add new key
+        echo "${key}=${value}" >> "$CONFIG_FILE"
+    fi
+}
+
+# Get a value from the config file
+get_config() {
+    local key="$1"
+    local default="$2"
+
+    if [ -f "$CONFIG_FILE" ]; then
+        # Extract value, strip comments and whitespace
+        local value=$(grep "^${key}=" "$CONFIG_FILE" 2>/dev/null | cut -d'=' -f2 | sed 's/#.*//' | tr -d '"' | tr -d "'" | xargs)
+        if [ -n "$value" ]; then
+            echo "$value"
+            return
+        fi
+    fi
+    echo "$default"
+}
+
+# ============================================================================
+# Commands
+# ============================================================================
+
+cmd_show() {
+    ensure_config_exists
+
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo -e "${CYAN}  Claude Status Line Configuration${RESET}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo ""
+
+    echo -e "${YELLOW}Elements:${RESET}"
+    for element in "${ELEMENTS[@]}"; do
+        local var_name=$(get_var_name "$element")
+        local value=$(get_config "$var_name" "1")
+        local color_var=$(get_color_var_name "$element")
+        local color=$(get_config "$color_var" "white")
+
+        if [ "$value" = "1" ]; then
+            echo -e "  ${GREEN}●${RESET} $element ${BLUE}($color)${RESET}"
+        else
+            echo -e "  ${RED}○${RESET} $element ${BLUE}($color)${RESET} ${RED}[disabled]${RESET}"
+        fi
+    done
+
+    echo ""
+    echo -e "${YELLOW}Context Colors:${RESET}"
+    echo -e "  Low (<50%):    $(get_config COLOR_CONTEXT_LOW green)"
+    echo -e "  Medium (50-75%): $(get_config COLOR_CONTEXT_MED yellow)"
+    echo -e "  High (>75%):   $(get_config COLOR_CONTEXT_HIGH red)"
+
+    echo ""
+    echo -e "${YELLOW}Code Change Colors:${RESET}"
+    echo -e "  Added:   $(get_config COLOR_ADDED green)"
+    echo -e "  Removed: $(get_config COLOR_REMOVED red)"
+
+    echo ""
+    echo -e "${YELLOW}Settings:${RESET}"
+    echo -e "  BTC Cache TTL: $(get_config BTC_CACHE_TTL 30)s"
+    echo -e "  Separator:     \"$(get_config SEPARATOR '   |   ')\""
+
+    echo ""
+    echo -e "${CYAN}Config file: $CONFIG_FILE${RESET}"
+}
+
+cmd_enable() {
+    local element="$1"
+
+    if [ -z "$element" ]; then
+        echo -e "${RED}Error: Please specify an element to enable${RESET}"
+        echo "Usage: statusline-config enable <element>"
+        echo "Run 'statusline-config list' to see available elements"
+        exit 1
+    fi
+
+    if ! is_valid_element "$element"; then
+        echo -e "${RED}Error: Unknown element '$element'${RESET}"
+        echo "Run 'statusline-config list' to see available elements"
+        exit 1
+    fi
+
+    ensure_config_exists
+
+    local var_name=$(get_var_name "$element")
+    update_config "$var_name" "1"
+
+    echo -e "${GREEN}✓ Enabled: $element${RESET}"
+}
+
+cmd_disable() {
+    local element="$1"
+
+    if [ -z "$element" ]; then
+        echo -e "${RED}Error: Please specify an element to disable${RESET}"
+        echo "Usage: statusline-config disable <element>"
+        echo "Run 'statusline-config list' to see available elements"
+        exit 1
+    fi
+
+    if ! is_valid_element "$element"; then
+        echo -e "${RED}Error: Unknown element '$element'${RESET}"
+        echo "Run 'statusline-config list' to see available elements"
+        exit 1
+    fi
+
+    ensure_config_exists
+
+    local var_name=$(get_var_name "$element")
+    update_config "$var_name" "0"
+
+    echo -e "${YELLOW}✓ Disabled: $element${RESET}"
+}
+
+cmd_color() {
+    local element="$1"
+    local color="$2"
+
+    if [ -z "$element" ] || [ -z "$color" ]; then
+        echo -e "${RED}Error: Please specify both element and color${RESET}"
+        echo "Usage: statusline-config color <element> <color>"
+        echo "Run 'statusline-config list' to see available options"
+        exit 1
+    fi
+
+    # Handle special color elements
+    local valid_color_elements=("${ELEMENTS[@]}" "context_low" "context_med" "context_high" "added" "removed")
+    local found=0
+    for e in "${valid_color_elements[@]}"; do
+        if [ "$e" = "$element" ]; then
+            found=1
+            break
+        fi
+    done
+
+    if [ $found -eq 0 ]; then
+        echo -e "${RED}Error: Unknown element '$element'${RESET}"
+        echo "Run 'statusline-config list' to see available elements"
+        exit 1
+    fi
+
+    if ! is_valid_color "$color"; then
+        echo -e "${RED}Error: Unknown color '$color'${RESET}"
+        echo "Run 'statusline-config list' to see available colors"
+        exit 1
+    fi
+
+    ensure_config_exists
+
+    local var_name=$(get_color_var_name "$element")
+    update_config "$var_name" "$color"
+
+    echo -e "${GREEN}✓ Set $element color to: $color${RESET}"
+}
+
+cmd_set() {
+    local key="$1"
+    local value="$2"
+
+    if [ -z "$key" ] || [ -z "$value" ]; then
+        echo -e "${RED}Error: Please specify both key and value${RESET}"
+        echo "Usage: statusline-config set <key> <value>"
+        echo ""
+        echo "Common keys:"
+        echo "  BTC_CACHE_TTL  - Seconds to cache BTC price (default: 30)"
+        echo "  SEPARATOR      - Separator between elements (default: '   |   ')"
+        exit 1
+    fi
+
+    ensure_config_exists
+
+    # Handle quoted values for SEPARATOR
+    if [ "$key" = "SEPARATOR" ]; then
+        update_config "$key" "\"$value\""
+    else
+        update_config "$key" "$value"
+    fi
+
+    echo -e "${GREEN}✓ Set $key = $value${RESET}"
+}
+
+cmd_reset() {
+    if [ -f "$DEFAULT_CONFIG" ]; then
+        cp "$DEFAULT_CONFIG" "$CONFIG_FILE"
+        echo -e "${GREEN}✓ Configuration reset to defaults${RESET}"
+    else
+        echo -e "${RED}Error: Default config not found at $DEFAULT_CONFIG${RESET}"
+        exit 1
+    fi
+}
+
+cmd_list() {
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo -e "${CYAN}  Available Options${RESET}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo ""
+
+    echo -e "${YELLOW}Elements (for enable/disable):${RESET}"
+    echo "  model          - Model name (Opus 4.5)"
+    echo "  directory      - Current directory"
+    echo "  git_branch     - Git branch name"
+    echo "  context        - Context window usage"
+    echo "  duration       - Session duration"
+    echo "  api_duration   - API call duration"
+    echo "  code_changes   - Lines added/removed"
+    echo "  session_cost   - Current session cost"
+    echo "  weekly_cost    - Rolling 7-day cost"
+    echo "  lifetime_cost  - All-time cost"
+    echo "  btc            - Bitcoin price"
+
+    echo ""
+    echo -e "${YELLOW}Color Elements (for color command):${RESET}"
+    echo "  All elements above, plus:"
+    echo "  context_low    - Context color when < 50%"
+    echo "  context_med    - Context color when 50-75%"
+    echo "  context_high   - Context color when > 75%"
+    echo "  added          - Color for lines added"
+    echo "  removed        - Color for lines removed"
+
+    echo ""
+    echo -e "${YELLOW}Colors:${RESET}"
+    echo -e "  ${RESET}black${RESET}, \033[0;31mred\033[0m, \033[0;32mgreen\033[0m, \033[0;33myellow\033[0m, \033[0;34mblue\033[0m, \033[0;35mmagenta\033[0m, \033[0;36mcyan\033[0m, \033[0;37mwhite\033[0m"
+    echo -e "  \033[1;30mbright_black\033[0m, \033[1;31mbright_red\033[0m, \033[1;32mbright_green\033[0m, \033[1;33mbright_yellow\033[0m"
+    echo -e "  \033[1;34mbright_blue\033[0m, \033[1;35mbright_magenta\033[0m, \033[1;36mbright_cyan\033[0m, \033[1;37mbright_white\033[0m"
+}
+
+# ============================================================================
+# Main
+# ============================================================================
+
+case "${1:-}" in
+    show)
+        cmd_show
+        ;;
+    enable)
+        cmd_enable "$2"
+        ;;
+    disable)
+        cmd_disable "$2"
+        ;;
+    color)
+        cmd_color "$2" "$3"
+        ;;
+    set)
+        cmd_set "$2" "$3"
+        ;;
+    reset)
+        cmd_reset
+        ;;
+    list)
+        cmd_list
+        ;;
+    help|--help|-h|"")
+        print_usage
+        ;;
+    *)
+        echo -e "${RED}Error: Unknown command '$1'${RESET}"
+        echo "Run 'statusline-config help' for usage"
+        exit 1
+        ;;
+esac

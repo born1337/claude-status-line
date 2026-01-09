@@ -1,0 +1,57 @@
+# ============================================================================
+# Claude Status Line Configuration
+# ============================================================================
+# This file controls which elements are displayed and their colors.
+# Edit manually or use: statusline-config --help
+#
+# After changes, the status line updates automatically (no restart needed).
+# ============================================================================
+
+# ============================================================================
+# ELEMENTS - Set to 1 to show, 0 to hide
+# ============================================================================
+
+SHOW_MODEL=1           # Model name (e.g., "Opus 4.5")
+SHOW_DIRECTORY=1       # Current directory name
+SHOW_GIT_BRANCH=1      # Git branch [main]
+SHOW_CONTEXT=1         # Context window usage (22k/178k)
+SHOW_DURATION=1        # Session duration (5m 30s)
+SHOW_API_DURATION=1    # API call duration (API 23.5s)
+SHOW_CODE_CHANGES=1    # Lines added/removed (+156 -23)
+SHOW_SESSION_COST=1    # Current session cost (S:$0.55)
+SHOW_WEEKLY_COST=1     # Rolling 7-day cost (W:$12.50)
+SHOW_LIFETIME_COST=1   # All-time cost (L:$150.25)
+SHOW_BTC=1             # Bitcoin price (BTC:$91,234)
+
+# ============================================================================
+# COLORS - Available colors:
+#   black, red, green, yellow, blue, magenta, cyan, white
+#   bright_black, bright_red, bright_green, bright_yellow,
+#   bright_blue, bright_magenta, bright_cyan, bright_white
+# ============================================================================
+
+COLOR_MODEL=blue
+COLOR_DIRECTORY=green
+COLOR_GIT_BRANCH=cyan
+COLOR_DURATION=yellow
+COLOR_API_DURATION=cyan
+COLOR_SESSION_COST=magenta
+COLOR_WEEKLY_COST=cyan
+COLOR_LIFETIME_COST=white
+COLOR_BTC=yellow
+
+# Context window colors (based on usage percentage)
+COLOR_CONTEXT_LOW=green      # < 50% usage
+COLOR_CONTEXT_MED=yellow     # 50-75% usage
+COLOR_CONTEXT_HIGH=red       # > 75% usage
+
+# Code changes colors
+COLOR_ADDED=green            # Lines added (+)
+COLOR_REMOVED=red            # Lines removed (-)
+
+# ============================================================================
+# SETTINGS
+# ============================================================================
+
+BTC_CACHE_TTL=30             # Seconds to cache BTC price (reduces API calls)
+SEPARATOR="   |   "          # Separator between elements
