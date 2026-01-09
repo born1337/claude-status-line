@@ -13,13 +13,14 @@ Display real-time information while using Claude Code:
 | Model | Blue | Current model (e.g., "Opus 4.5") |
 | Directory | Green | Current working directory |
 | Git Branch | Cyan | Active git branch `[main]` |
-| Context Window | Color-coded | Used/free tokens (e.g., `22k/178k`) |
+| Context Window | Color-coded | Used/free tokens (e.g., `141k/58k`) |
 | Session Duration | Yellow | Time spent in session |
 | API Duration | Cyan | Time spent on API calls |
-| Code Changes | Green/Red | Lines added/removed (`+156 -23`) |
-| Session Cost | Magenta | Current session cost (`S:$0.42`) |
-| Weekly Cost | Cyan | Rolling 7-day total (`W:$12.50`) |
-| Lifetime Cost | White | All-time total (`L:$150.25`) |
+| Code Changes | Green/Red | Lines added/removed (`+1453 -226`) |
+| Session Cost | Magenta | Current session cost (`S:$13.0`) |
+| Weekly Cost | Cyan | Rolling 7-day total (`W:$81.2`) |
+| Lifetime Cost | White | All-time total (`L:$81.2`) |
+| BTC Price | Yellow | Live Bitcoin price (`BTC:$90,387`) |
 
 ### Context Window Color Coding
 - **Green**: < 50% used
@@ -32,7 +33,7 @@ Display real-time information while using Claude Code:
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/claude-status-line.git
+git clone https://github.com/born1337/claude-status-line.git
 
 # Run the install script
 cd claude-status-line
@@ -78,9 +79,61 @@ sudo apt-get install jq bc
 
 ## Configuration
 
-### Customizing Elements
+The status line is fully configurable via CLI or config file.
 
-Edit `~/.claude/statusline-command.sh` to customize what's displayed. Each element can be toggled by commenting out its section.
+### Using the CLI Tool
+
+```bash
+# View current configuration
+statusline-config show
+
+# Enable/disable elements
+statusline-config disable btc       # Hide BTC price
+statusline-config enable btc        # Show BTC price
+
+# Change colors
+statusline-config color model red
+statusline-config color directory cyan
+
+# Reset to defaults
+statusline-config reset
+
+# List all options
+statusline-config list
+```
+
+### Config File
+
+Edit `~/.claude/statusline.conf` directly:
+
+```bash
+# Elements (1=show, 0=hide)
+SHOW_MODEL=1
+SHOW_DIRECTORY=1
+SHOW_GIT_BRANCH=1
+SHOW_CONTEXT=1
+SHOW_DURATION=1
+SHOW_API_DURATION=1
+SHOW_CODE_CHANGES=1
+SHOW_SESSION_COST=1
+SHOW_WEEKLY_COST=1
+SHOW_LIFETIME_COST=1
+SHOW_BTC=1
+
+# Colors
+COLOR_MODEL=blue
+COLOR_DIRECTORY=green
+COLOR_BTC=yellow
+# ... and more
+
+# Settings
+BTC_CACHE_TTL=30
+```
+
+### Available Colors
+
+`black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`
+`bright_black`, `bright_red`, `bright_green`, `bright_yellow`, `bright_blue`, `bright_magenta`, `bright_cyan`, `bright_white`
 
 ## Usage Tracking
 
@@ -130,7 +183,7 @@ The status line tracks **comprehensive session data** in `~/.claude/usage-tracki
 ## Example Output
 
 ```
-Opus 4.5   |   my-project   |   [main]   |   22k/178k   |   5m 30s   |   API 45.2s   |   +156 -23   |   S:$0.55   |   W:$12.50   |   L:$150.25
+Opus 4.5 | claude-status-line | [feature/configurable-statusline] | 141k/58k | 3h 20m | API 23m 0s | +1453 -226 | S:$13.0 | W:$81.2 | L:$81.2 | BTC:$90,387
 ```
 
 ## Available Data Fields
