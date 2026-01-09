@@ -41,7 +41,7 @@ TRACKING_FILE="$HOME/.claude/usage-tracking.json"
 # Cache files for performance optimization
 BTC_CACHE_FILE="/tmp/claude-btc-cache"
 SESSION_CACHE_FILE="/tmp/claude-session-cache"
-BTC_CACHE_TTL=60  # seconds
+BTC_CACHE_TTL=30  # seconds
 
 # =============================================================================
 # OPTIMIZATION 1: Single jq call to extract all fields at once
