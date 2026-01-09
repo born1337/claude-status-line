@@ -5,7 +5,7 @@
 # =============================================================================
 #
 # Display format:
-#   Opus 4.5   |   test   |   [main]   |   22k/178k   |   2m 30s   |   API 2.3s   |   +156 -23   |   S:$0.42   |   W:$12.50   |   L:$150.25
+#   Opus 4.5   |   test   |   [main]   |   22k/178k   |   2m 30s   |   API 2.3s   |   +156 -23   |   S:$0.42   |   W:$12.50   |   L:$150.25   |   BTC:$90,310
 #
 # Elements:
 #   - Model name (blue)         - e.g., "Opus 4.5"
@@ -18,6 +18,7 @@
 #   - Session cost (magenta)    - S:$X.XX current session cost
 #   - Weekly cost (cyan)        - W:$X.XX rolling 7-day total
 #   - Lifetime cost (white)     - L:$X.XX all-time total
+#   - BTC price (yellow)        - BTC:$XX,XXX live from Binance API
 #
 # Data Storage:
 #   All session data is stored in ~/.claude/usage-tracking.json
@@ -289,9 +290,19 @@ if [ -n "$lifetime_cost" ] && [ "$lifetime_cost" != "0" ]; then
     lifetime_cost_info="   |   $(printf '\033[0;37m')L:\$${lifetime_display}$(printf '\033[0m')"
 fi
 
+# Fetch BTC price from Binance (with timeout to avoid slowdowns)
+btc_info=""
+btc_price=$(curl -s --max-time 1 "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT" 2>/dev/null | jq -r '.price // empty' 2>/dev/null)
+if [ -n "$btc_price" ]; then
+    # Format price with comma separator (cross-platform)
+    btc_int=$(printf "%.0f" "$btc_price")
+    btc_formatted=$(echo "$btc_int" | awk '{ printf "%\047d\n", $1 }' 2>/dev/null || echo "$btc_int")
+    btc_info="   |   $(printf '\033[0;33m')BTC:\$${btc_formatted}$(printf '\033[0m')"
+fi
+
 # =============================================================================
 # Assemble and output status line
 # =============================================================================
 
-printf "$(printf '\033[0;34m')%s$(printf '\033[0m')   |   $(printf '\033[0;32m')%s$(printf '\033[0m')%s%s%s%s%s%s%s%s" \
-    "$model_short" "$dir_name" "$git_branch" "$context_info" "$duration_info" "$api_duration_info" "$code_changes" "$session_cost_info" "$weekly_cost_info" "$lifetime_cost_info"
+printf "$(printf '\033[0;34m')%s$(printf '\033[0m')   |   $(printf '\033[0;32m')%s$(printf '\033[0m')%s%s%s%s%s%s%s%s%s" \
+    "$model_short" "$dir_name" "$git_branch" "$context_info" "$duration_info" "$api_duration_info" "$code_changes" "$session_cost_info" "$weekly_cost_info" "$lifetime_cost_info" "$btc_info"
