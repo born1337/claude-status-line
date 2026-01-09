@@ -11,6 +11,7 @@ Thumbs.db
 
 # Local config (don't commit actual usage data)
 weekly-usage.json
+.claude/
 
 # Backup files
 *.bak
