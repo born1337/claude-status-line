@@ -1,0 +1,39 @@
+{
+  "sessions": [
+    {
+      "session_id": "test-session-123",
+      "cost": 0.555,
+      "timestamp": 1767960063
+    },
+    {
+      "session_id": "a8221e14-b985-47e9-a4b2-e95865693c13",
+      "cost": 0.3889791,
+      "timestamp": 1767960299
+    },
+    {
+      "session_id": "46d0a190-725e-4705-bd2f-8b4b2cfcc187",
+      "cost": 0.76813385,
+      "timestamp": 1767960580
+    },
+    {
+      "session_id": "2c20ff6e-340e-4161-acb1-cdc34ae93b4b",
+      "cost": 157.81735970000034,
+      "timestamp": 1767960728
+    },
+    {
+      "session_id": "c3e483b0-ef9d-4035-ab1c-70cbc51a323e",
+      "cost": 157.81735970000034,
+      "timestamp": 1767960803
+    },
+    {
+      "session_id": "b2ad3369-ae3e-4d03-8a95-5d5fbdb53532",
+      "cost": 0.18033425000000003,
+      "timestamp": 1767961013
+    },
+    {
+      "session_id": "2872c8f8-01ae-4a46-a576-8592949782bc",
+      "cost": 4.624816999999997,
+      "timestamp": 1767961034
+    }
+  ]
+}

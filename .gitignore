@@ -1,0 +1,17 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Local config (don't commit actual usage data)
+weekly-usage.json
+
+# Backup files
+*.bak
+*.backup
