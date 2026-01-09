@@ -5,7 +5,7 @@
 # =============================================================================
 #
 # Display format:
-#   Opus 4.5   |   test   |   [main]   |   22k/178k   |   2m 30s   |   API 2.3s   |   +156 -23   |   12k/3k   |   S:$0.42   |   W:$12.50
+#   Opus 4.5   |   test   |   [main]   |   22k/178k   |   2m 30s   |   API 2.3s   |   +156 -23   |   S:$0.42   |   W:$12.50
 #
 # Elements:
 #   - Model name (blue)         - e.g., "Opus 4.5"
@@ -15,7 +15,6 @@
 #   - Session duration (yellow) - time spent in session
 #   - API duration (cyan)       - time spent in API calls
 #   - Code changes (green/red)  - lines added/removed
-#   - Token counts (white)      - input/output tokens (e.g., 12k/3k)
 #   - Session cost (magenta)    - S:$X.XX current session cost
 #   - Weekly cost (cyan)        - W:$X.XX total cost this week
 #
@@ -126,27 +125,9 @@ if [ "$lines_added" -gt 0 ] || [ "$lines_removed" -gt 0 ]; then
     code_changes="   |   $(printf '\033[0;32m')+${lines_added}$(printf '\033[0m') $(printf '\033[0;31m')-${lines_removed}$(printf '\033[0m')"
 fi
 
-# Token counts (input/output)
-token_info=""
+# Get token counts for cost calculation
 total_input=$(echo "$input" | jq -r '.context_window.total_input_tokens // 0')
 total_output=$(echo "$input" | jq -r '.context_window.total_output_tokens // 0')
-
-format_tokens() {
-    local tokens=$1
-    if [ "$tokens" -ge 1000000 ]; then
-        echo "$(echo "scale=1; $tokens / 1000000" | bc)M"
-    elif [ "$tokens" -ge 1000 ]; then
-        echo "$(echo "scale=1; $tokens / 1000" | bc)k"
-    else
-        echo "$tokens"
-    fi
-}
-
-if [ "$total_input" -gt 0 ] || [ "$total_output" -gt 0 ]; then
-    input_fmt=$(format_tokens $total_input)
-    output_fmt=$(format_tokens $total_output)
-    token_info="   |   $(printf '\033[0;37m')${input_fmt}/${output_fmt}$(printf '\033[0m')"
-fi
 
 # Get session cost (prefer official value, fallback to calculation)
 session_cost=$(echo "$input" | jq -r '.cost.total_cost_usd // 0')
@@ -242,5 +223,5 @@ if [ -n "$weekly_cost" ] && [ "$weekly_cost" != "0" ] && [ "$weekly_cost" != "nu
 fi
 
 # Assemble status line with spacing
-printf "$(printf '\033[0;34m')%s$(printf '\033[0m')   |   $(printf '\033[0;32m')%s$(printf '\033[0m')%s%s%s%s%s%s%s%s" \
-    "$model_short" "$dir_name" "$git_branch" "$context_info" "$duration_info" "$api_duration_info" "$code_changes" "$token_info" "$session_cost_info" "$weekly_cost_info"
+printf "$(printf '\033[0;34m')%s$(printf '\033[0m')   |   $(printf '\033[0;32m')%s$(printf '\033[0m')%s%s%s%s%s%s%s" \
+    "$model_short" "$dir_name" "$git_branch" "$context_info" "$duration_info" "$api_duration_info" "$code_changes" "$session_cost_info" "$weekly_cost_info"
