@@ -315,7 +315,7 @@ if [ "$SHOW_CONTEXT" = "1" ] && [ "$ctx_size" -gt 0 ] && [ -n "$ctx_input" ]; th
     pct=$((current * 100 / ctx_size))
 
     used_fmt=$(format_tokens $current)
-    free_fmt=$(format_tokens $free)
+    max_fmt=$(format_tokens $ctx_size)
 
     if [ $pct -lt 50 ]; then
         color=$(get_color_code "$COLOR_CONTEXT_LOW")
@@ -325,7 +325,7 @@ if [ "$SHOW_CONTEXT" = "1" ] && [ "$ctx_size" -gt 0 ] && [ -n "$ctx_input" ]; th
         color=$(get_color_code "$COLOR_CONTEXT_HIGH")
     fi
     [ -n "$output" ] && output+="$SEPARATOR"
-    output+="$(printf "${color}")${used_fmt}/${free_fmt}$(printf "${RESET}")"
+    output+="$(printf "${color}")${used_fmt}/${max_fmt} (${pct}%)$(printf "${RESET}")"
 fi
 
 # Session duration
