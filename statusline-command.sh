@@ -219,11 +219,13 @@ update_session_tracking() {
         local tmp_file="${TRACKING_FILE}.tmp.$$"
         local backup_file="${TRACKING_FILE}.bak"
         echo "$updated" > "$tmp_file"
+        sync  # Force flush to disk before validation
         # Validate JSON is complete before replacing
         if jq -e '.' "$tmp_file" > /dev/null 2>&1; then
             # Keep one backup of last known good state
             [ -f "$TRACKING_FILE" ] && cp "$TRACKING_FILE" "$backup_file"
             mv "$tmp_file" "$TRACKING_FILE"
+            sync  # Ensure rename is persisted
         else
             rm -f "$tmp_file"
         fi
