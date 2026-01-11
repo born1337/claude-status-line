@@ -180,6 +180,12 @@ The status line tracks **comprehensive session data** in `~/.claude/usage-tracki
 - Query any time range from the data
 - Calculate custom metrics (by project, by model, etc.)
 
+### Data Protection
+The tracking file is protected against corruption:
+- **Atomic writes** - Changes written to temp file first, then atomically renamed
+- **Automatic backups** - Last known good state saved to `.bak` file
+- **Auto-recovery** - Corrupted files automatically restored from backup
+
 ## Example Output
 
 ```
@@ -246,7 +252,22 @@ jq '.sessions | group_by(.model) | map({model: .[0].model, cost: ([.[].cost] | a
 Some fields (like `cost.total_cost_usd`) may not be available depending on your Claude Code version or authentication method.
 
 ### Costs show $0
-The tracking file may not exist yet. It will be created after your first session with the new status line.
+The tracking file may not exist yet, or it may have become corrupted. The script now includes automatic corruption recovery:
+
+1. **Automatic recovery**: If the tracking file is corrupted, the script automatically restores from backup (`~/.claude/usage-tracking.json.bak`)
+2. **Manual recovery**: If needed, you can manually restore:
+   ```bash
+   # Check if file is valid
+   jq '.' ~/.claude/usage-tracking.json
+
+   # Restore from backup if invalid
+   cp ~/.claude/usage-tracking.json.bak ~/.claude/usage-tracking.json
+
+   # Or start fresh
+   echo '{"sessions":[]}' > ~/.claude/usage-tracking.json
+   ```
+
+See [docs/corruption-recovery.md](docs/corruption-recovery.md) for technical details on how corruption is prevented.
 
 ## Contributing
 

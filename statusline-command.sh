@@ -213,7 +213,37 @@ update_session_tracking() {
             "lines_removed": $lines_removed
         }]
         ' "$TRACKING_FILE" 2>/dev/null)
-    [ -n "$updated" ] && echo "$updated" > "$TRACKING_FILE"
+
+    # Atomic write: write to temp file, validate, then rename
+    if [ -n "$updated" ]; then
+        local tmp_file="${TRACKING_FILE}.tmp.$$"
+        local backup_file="${TRACKING_FILE}.bak"
+        echo "$updated" > "$tmp_file"
+        # Validate JSON is complete before replacing
+        if jq -e '.' "$tmp_file" > /dev/null 2>&1; then
+            # Keep one backup of last known good state
+            [ -f "$TRACKING_FILE" ] && cp "$TRACKING_FILE" "$backup_file"
+            mv "$tmp_file" "$TRACKING_FILE"
+        else
+            rm -f "$tmp_file"
+        fi
+    fi
+}
+
+# Recover tracking file from backup if corrupted
+recover_tracking_file() {
+    local backup_file="${TRACKING_FILE}.bak"
+    if [ -f "$TRACKING_FILE" ]; then
+        if ! jq -e '.' "$TRACKING_FILE" > /dev/null 2>&1; then
+            # Main file is corrupted, try backup
+            if [ -f "$backup_file" ] && jq -e '.' "$backup_file" > /dev/null 2>&1; then
+                cp "$backup_file" "$TRACKING_FILE"
+            else
+                # No valid backup, start fresh
+                echo '{"sessions":[]}' > "$TRACKING_FILE"
+            fi
+        fi
+    fi
 }
 
 calculate_costs() {
@@ -232,7 +262,8 @@ calculate_costs() {
     fi
 }
 
-# Update tracking if needed
+# Recover from corruption if needed, then update tracking
+recover_tracking_file 2>/dev/null
 if [ -n "$session_cost" ] && [ "$SESSION_ID" != "unknown" ]; then
     if should_update_tracking; then
         update_session_tracking 2>/dev/null
