@@ -13,13 +13,14 @@ Display real-time information while using Claude Code:
 | Model | Blue | Current model (e.g., "Opus 4.5") |
 | Directory | Green | Current working directory |
 | Git Branch | Cyan | Active git branch `[main]` |
-| Context Window | Color-coded | Used/free tokens (e.g., `141k/58k`) |
+| Context Window | Color-coded | Used/max tokens with percentage (e.g., `22k/200k (11%)`) |
 | Session Duration | Yellow | Time spent in session |
 | API Duration | Cyan | Time spent on API calls |
 | Code Changes | Green/Red | Lines added/removed (`+1453 -226`) |
 | Session Cost | Magenta | Current session cost (`S:$13.0`) |
-| Weekly Cost | Cyan | Rolling 7-day total (`W:$81.2`) |
-| Lifetime Cost | White | All-time total (`L:$81.2`) |
+| Daily Cost | Yellow | Today's total via ccusage (`D:$83.5`) |
+| Weekly Cost | Cyan | This week's total via ccusage (`W:$212`) |
+| Lifetime Cost | White | All-time total via ccusage (`L:$570`) |
 | BTC Price | Yellow | Live Bitcoin price (`BTC:$90,387`) |
 
 ### Context Window Color Coding
@@ -66,15 +67,18 @@ chmod +x ~/.claude/statusline-command.sh
 - `jq` for JSON parsing
 - `bc` for cost calculations
 - `git` (optional, for branch display)
+- `ccusage` (optional, for daily/weekly/lifetime cost tracking)
 
 ### Install dependencies (macOS)
 ```bash
 brew install jq bc
+npm install -g ccusage  # Optional: for cost tracking
 ```
 
 ### Install dependencies (Ubuntu/Debian)
 ```bash
 sudo apt-get install jq bc
+npm install -g ccusage  # Optional: for cost tracking
 ```
 
 ## Configuration
@@ -116,6 +120,7 @@ SHOW_DURATION=1
 SHOW_API_DURATION=1
 SHOW_CODE_CHANGES=1
 SHOW_SESSION_COST=1
+SHOW_DAILY_COST=1
 SHOW_WEEKLY_COST=1
 SHOW_LIFETIME_COST=1
 SHOW_BTC=1
@@ -123,11 +128,13 @@ SHOW_BTC=1
 # Colors
 COLOR_MODEL=blue
 COLOR_DIRECTORY=green
+COLOR_DAILY_COST=yellow
 COLOR_BTC=yellow
 # ... and more
 
 # Settings
 BTC_CACHE_TTL=30
+CCUSAGE_CACHE_TTL=60
 ```
 
 ### Available Colors
@@ -137,59 +144,26 @@ BTC_CACHE_TTL=30
 
 ## Usage Tracking
 
-The status line tracks **comprehensive session data** in `~/.claude/usage-tracking.json`:
-
-```json
-{
-  "sessions": [
-    {
-      "session_id": "abc-123-def-456",
-      "timestamp": 1736450000,
-      "model": "Claude 4.5 Opus",
-      "project_dir": "/Users/example/myproject",
-      "cost": 0.55,
-      "duration_ms": 156000,
-      "api_duration_ms": 23500,
-      "input_tokens": 22000,
-      "output_tokens": 3000,
-      "lines_added": 156,
-      "lines_removed": 23
-    }
-  ]
-}
-```
-
-### What's Tracked Per Session
-- Session ID & timestamp
-- Model used
-- Project directory
-- Cost (USD)
-- Duration (total & API time)
-- Token usage (input/output)
-- Lines of code changed
+Cost tracking is powered by [ccusage](https://github.com/ryoppippi/ccusage), which reads Claude Code's native usage logs.
 
 ### Cost Calculations
-| Metric | How It's Calculated |
-|--------|---------------------|
-| Session | Current session's `cost.total_cost_usd` |
-| Weekly | Sum of sessions from last 7 days |
-| Lifetime | Sum of all sessions ever |
+| Metric | Source |
+|--------|--------|
+| Session | Current session's `cost.total_cost_usd` from Claude Code |
+| Daily | Today's total from ccusage |
+| Weekly | This week's total from ccusage |
+| Lifetime | All-time total from ccusage |
 
-### Data Retention
-- **Sessions are never deleted** - full history is preserved
-- Query any time range from the data
-- Calculate custom metrics (by project, by model, etc.)
-
-### Data Protection
-The tracking file is protected against corruption:
-- **Atomic writes** - Changes written to temp file first, then atomically renamed
-- **Automatic backups** - Last known good state saved to `.bak` file
-- **Auto-recovery** - Corrupted files automatically restored from backup
+### Performance
+- ccusage data is cached for 60 seconds (configurable via `CCUSAGE_CACHE_TTL`)
+- BTC price is cached for 30 seconds (configurable via `BTC_CACHE_TTL`)
+- First status line render may take ~2s while caches warm up
+- Subsequent renders are ~50ms
 
 ## Example Output
 
 ```
-Opus 4.5 | claude-status-line | [feature/configurable-statusline] | 141k/58k | 3h 20m | API 23m 0s | +1453 -226 | S:$13.0 | W:$81.2 | L:$81.2 | BTC:$90,387
+Opus 4.5 | claude-status-line | [main] | 22k/200k (11%) | 3h 20m | API 23m 0s | +1453 -226 | S:$13.0 | D:$83.5 | W:$212 | L:$570 | BTC:$94,000
 ```
 
 ## Available Data Fields
@@ -222,23 +196,20 @@ The status line receives JSON data from Claude Code with these fields:
 
 ## Querying Your Data
 
-Since all sessions are stored, you can query your usage history:
+Use ccusage directly for detailed usage reports:
 
 ```bash
-# Total lifetime cost
-jq '[.sessions[].cost] | add' ~/.claude/usage-tracking.json
+# Daily breakdown
+ccusage daily
 
-# Sessions by project
-jq '.sessions | group_by(.project_dir) | map({project: .[0].project_dir, total: ([.[].cost] | add)})' ~/.claude/usage-tracking.json
+# Weekly breakdown
+ccusage weekly
 
-# Most expensive session
-jq '.sessions | max_by(.cost)' ~/.claude/usage-tracking.json
+# By session
+ccusage session
 
-# Total tokens used
-jq '[.sessions[] | .input_tokens + .output_tokens] | add' ~/.claude/usage-tracking.json
-
-# Usage by model
-jq '.sessions | group_by(.model) | map({model: .[0].model, cost: ([.[].cost] | add)})' ~/.claude/usage-tracking.json
+# JSON output for scripting
+ccusage daily --json | jq '.totals.totalCost'
 ```
 
 ## Troubleshooting
@@ -252,22 +223,10 @@ jq '.sessions | group_by(.model) | map({model: .[0].model, cost: ([.[].cost] | a
 Some fields (like `cost.total_cost_usd`) may not be available depending on your Claude Code version or authentication method.
 
 ### Costs show $0
-The tracking file may not exist yet, or it may have become corrupted. The script now includes automatic corruption recovery:
-
-1. **Automatic recovery**: If the tracking file is corrupted, the script automatically restores from backup (`~/.claude/usage-tracking.json.bak`)
-2. **Manual recovery**: If needed, you can manually restore:
-   ```bash
-   # Check if file is valid
-   jq '.' ~/.claude/usage-tracking.json
-
-   # Restore from backup if invalid
-   cp ~/.claude/usage-tracking.json.bak ~/.claude/usage-tracking.json
-
-   # Or start fresh
-   echo '{"sessions":[]}' > ~/.claude/usage-tracking.json
-   ```
-
-See [docs/corruption-recovery.md](docs/corruption-recovery.md) for technical details on how corruption is prevented.
+If daily/weekly/lifetime costs show $0:
+1. Ensure ccusage is installed: `npm install -g ccusage`
+2. Verify it works: `ccusage daily`
+3. Clear the cache and try again: `rm /tmp/claude-ccusage-cache`
 
 ## Contributing
 

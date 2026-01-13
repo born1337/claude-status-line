@@ -11,11 +11,11 @@
 #   Edit ~/.claude/statusline.conf or use: statusline-config --help
 #   All elements can be enabled/disabled and colors customized.
 #
-# Performance Optimizations:
-#   - Single jq call extracts all JSON fields at once (~1000ms savings)
-#   - BTC price cached (configurable TTL, default 30s)
-#   - Tracking file writes debounced (only when data changes)
-#   - Config sourced directly (no JSON parsing overhead)
+# Dependencies:
+#   - jq: JSON parsing
+#   - bc: Arithmetic calculations
+#   - git: Branch detection (optional)
+#   - ccusage: Weekly/lifetime cost tracking (optional, install via npm)
 #
 # =============================================================================
 
@@ -27,7 +27,6 @@ input=$(cat)
 # =============================================================================
 
 CONFIG_FILE="$HOME/.claude/statusline.conf"
-TRACKING_FILE="$HOME/.claude/usage-tracking.json"
 
 # Default values (used if config file doesn't exist or variable is missing)
 SHOW_MODEL=${SHOW_MODEL:-1}
@@ -38,6 +37,7 @@ SHOW_DURATION=${SHOW_DURATION:-1}
 SHOW_API_DURATION=${SHOW_API_DURATION:-1}
 SHOW_CODE_CHANGES=${SHOW_CODE_CHANGES:-1}
 SHOW_SESSION_COST=${SHOW_SESSION_COST:-1}
+SHOW_DAILY_COST=${SHOW_DAILY_COST:-1}
 SHOW_WEEKLY_COST=${SHOW_WEEKLY_COST:-1}
 SHOW_LIFETIME_COST=${SHOW_LIFETIME_COST:-1}
 SHOW_BTC=${SHOW_BTC:-1}
@@ -48,6 +48,7 @@ COLOR_GIT_BRANCH=${COLOR_GIT_BRANCH:-cyan}
 COLOR_DURATION=${COLOR_DURATION:-yellow}
 COLOR_API_DURATION=${COLOR_API_DURATION:-cyan}
 COLOR_SESSION_COST=${COLOR_SESSION_COST:-magenta}
+COLOR_DAILY_COST=${COLOR_DAILY_COST:-yellow}
 COLOR_WEEKLY_COST=${COLOR_WEEKLY_COST:-cyan}
 COLOR_LIFETIME_COST=${COLOR_LIFETIME_COST:-white}
 COLOR_BTC=${COLOR_BTC:-yellow}
@@ -58,6 +59,7 @@ COLOR_ADDED=${COLOR_ADDED:-green}
 COLOR_REMOVED=${COLOR_REMOVED:-red}
 
 BTC_CACHE_TTL=${BTC_CACHE_TTL:-30}
+CCUSAGE_CACHE_TTL=${CCUSAGE_CACHE_TTL:-60}
 SEPARATOR=${SEPARATOR:-"   |   "}
 
 # Load config file if it exists (overrides defaults)
@@ -65,7 +67,7 @@ SEPARATOR=${SEPARATOR:-"   |   "}
 
 # Cache files for performance optimization
 BTC_CACHE_FILE="/tmp/claude-btc-cache"
-SESSION_CACHE_FILE="/tmp/claude-session-cache"
+CCUSAGE_CACHE_FILE="/tmp/claude-ccusage-cache"
 
 # =============================================================================
 # Color Mapping
@@ -165,117 +167,51 @@ if [ "$session_cost" = "0" ] || [ "$session_cost" = "null" ]; then
 fi
 
 # =============================================================================
-# Session Tracking (Debounced)
+# Cost Tracking via ccusage (with caching)
 # =============================================================================
 
-should_update_tracking() {
-    local current_hash="${SESSION_ID}:${session_cost}:${duration_ms}:${lines_added}:${lines_removed}"
-    if [ -f "$SESSION_CACHE_FILE" ]; then
-        local cached_hash=$(cat "$SESSION_CACHE_FILE" 2>/dev/null)
-        if [ "$cached_hash" = "$current_hash" ]; then
-            return 1
-        fi
-    fi
-    echo "$current_hash" > "$SESSION_CACHE_FILE" 2>/dev/null
-    return 0
-}
-
-update_session_tracking() {
+get_ccusage_costs() {
     local now=$(date +%s)
-    if [ ! -f "$TRACKING_FILE" ]; then
-        echo '{"sessions":[]}' > "$TRACKING_FILE"
-    fi
-    local updated=$(jq \
-        --arg session_id "$SESSION_ID" \
-        --arg model "$model_name" \
-        --arg project_dir "$project_dir" \
-        --argjson timestamp "$now" \
-        --argjson cost "${session_cost:-0}" \
-        --argjson duration_ms "${duration_ms:-0}" \
-        --argjson api_duration_ms "${api_duration_ms:-0}" \
-        --argjson input_tokens "${total_input:-0}" \
-        --argjson output_tokens "${total_output:-0}" \
-        --argjson lines_added "${lines_added:-0}" \
-        --argjson lines_removed "${lines_removed:-0}" \
-        '
-        .sessions = [.sessions[] | select(.session_id != $session_id)] +
-        [{
-            "session_id": $session_id,
-            "timestamp": $timestamp,
-            "model": $model,
-            "project_dir": $project_dir,
-            "cost": $cost,
-            "duration_ms": $duration_ms,
-            "api_duration_ms": $api_duration_ms,
-            "input_tokens": $input_tokens,
-            "output_tokens": $output_tokens,
-            "lines_added": $lines_added,
-            "lines_removed": $lines_removed
-        }]
-        ' "$TRACKING_FILE" 2>/dev/null)
 
-    # Atomic write: write to temp file, validate, then rename
-    if [ -n "$updated" ]; then
-        local tmp_file="${TRACKING_FILE}.tmp.$$"
-        local backup_file="${TRACKING_FILE}.bak"
-        echo "$updated" > "$tmp_file"
-        sync  # Force flush to disk before validation
-        # Validate JSON is complete before replacing
-        if jq -e '.' "$tmp_file" > /dev/null 2>&1; then
-            # Keep one backup of last known good state
-            [ -f "$TRACKING_FILE" ] && cp "$TRACKING_FILE" "$backup_file"
-            mv "$tmp_file" "$TRACKING_FILE"
-            sync  # Ensure rename is persisted
-        else
-            rm -f "$tmp_file"
+    # Check cache first
+    if [ -f "$CCUSAGE_CACHE_FILE" ]; then
+        local cache_data=$(cat "$CCUSAGE_CACHE_FILE" 2>/dev/null)
+        local cache_time=$(echo "$cache_data" | head -1)
+        if [ -n "$cache_time" ] && [ $((now - cache_time)) -lt $CCUSAGE_CACHE_TTL ]; then
+            # Return cached values (line 2 = daily, line 3 = weekly, line 4 = lifetime)
+            echo "$(echo "$cache_data" | sed -n '2p') $(echo "$cache_data" | sed -n '3p') $(echo "$cache_data" | sed -n '4p')"
+            return
         fi
     fi
-}
 
-# Recover tracking file from backup if corrupted
-recover_tracking_file() {
-    local backup_file="${TRACKING_FILE}.bak"
-    if [ -f "$TRACKING_FILE" ]; then
-        if ! jq -e '.' "$TRACKING_FILE" > /dev/null 2>&1; then
-            # Main file is corrupted, try backup
-            if [ -f "$backup_file" ] && jq -e '.' "$backup_file" > /dev/null 2>&1; then
-                cp "$backup_file" "$TRACKING_FILE"
-            else
-                # No valid backup, start fresh
-                echo '{"sessions":[]}' > "$TRACKING_FILE"
-            fi
+    # Fetch from ccusage if available
+    if command -v ccusage &> /dev/null; then
+        local daily_json=$(ccusage daily --json 2>/dev/null)
+        local weekly_json=$(ccusage weekly --json 2>/dev/null)
+        if [ -n "$weekly_json" ]; then
+            # Get today's cost (last entry in daily array)
+            local daily=$(echo "$daily_json" | jq -r '.daily[-1].totalCost // 0' 2>/dev/null)
+            # Get current week's cost (last entry in weekly array)
+            local weekly=$(echo "$weekly_json" | jq -r '.weekly[-1].totalCost // 0' 2>/dev/null)
+            # Get lifetime total
+            local lifetime=$(echo "$weekly_json" | jq -r '.totals.totalCost // 0' 2>/dev/null)
+
+            # Cache the results
+            printf "%s\n%s\n%s\n%s\n" "$now" "$daily" "$weekly" "$lifetime" > "$CCUSAGE_CACHE_FILE" 2>/dev/null
+
+            echo "$daily $weekly $lifetime"
+            return
         fi
     fi
+
+    echo "0 0 0"
 }
 
-calculate_costs() {
-    local now=$(date +%s)
-    local week_ago=$((now - 604800))
-    if [ -f "$TRACKING_FILE" ]; then
-        weekly=$(jq --argjson week_ago "$week_ago" --arg current "$SESSION_ID" \
-            '[.sessions[] | select(.timestamp > $week_ago and .session_id != $current) | .cost] | add // 0' \
-            "$TRACKING_FILE" 2>/dev/null)
-        lifetime=$(jq --arg current "$SESSION_ID" \
-            '[.sessions[] | select(.session_id != $current) | .cost] | add // 0' \
-            "$TRACKING_FILE" 2>/dev/null)
-        echo "$weekly $lifetime"
-    else
-        echo "0 0"
-    fi
-}
-
-# Recover from corruption if needed, then update tracking
-recover_tracking_file 2>/dev/null
-if [ -n "$session_cost" ] && [ "$SESSION_ID" != "unknown" ]; then
-    if should_update_tracking; then
-        update_session_tracking 2>/dev/null
-    fi
-fi
-
-# Get calculated costs
-read weekly_total lifetime_total <<< $(calculate_costs 2>/dev/null)
-weekly_cost=$(echo "scale=6; ${weekly_total:-0} + ${session_cost:-0}" | bc)
-lifetime_cost=$(echo "scale=6; ${lifetime_total:-0} + ${session_cost:-0}" | bc)
+# Get costs from ccusage
+read daily_cost weekly_cost lifetime_cost <<< $(get_ccusage_costs 2>/dev/null)
+[ -z "$daily_cost" ] && daily_cost=0
+[ -z "$weekly_cost" ] && weekly_cost=0
+[ -z "$lifetime_cost" ] && lifetime_cost=0
 
 # =============================================================================
 # Format Helper Functions
@@ -415,7 +351,15 @@ if [ "$SHOW_SESSION_COST" = "1" ] && [ -n "$session_cost" ] && [ "$session_cost"
     output+="$(printf "${color}")S:\$${session_display}$(printf "${RESET}")"
 fi
 
-# Weekly cost
+# Daily cost (from ccusage)
+if [ "$SHOW_DAILY_COST" = "1" ] && [ -n "$daily_cost" ] && [ "$daily_cost" != "0" ]; then
+    daily_display=$(format_cost $daily_cost)
+    color=$(get_color_code "$COLOR_DAILY_COST")
+    [ -n "$output" ] && output+="$SEPARATOR"
+    output+="$(printf "${color}")D:\$${daily_display}$(printf "${RESET}")"
+fi
+
+# Weekly cost (from ccusage)
 if [ "$SHOW_WEEKLY_COST" = "1" ] && [ -n "$weekly_cost" ] && [ "$weekly_cost" != "0" ]; then
     weekly_display=$(format_cost $weekly_cost)
     color=$(get_color_code "$COLOR_WEEKLY_COST")
@@ -423,7 +367,7 @@ if [ "$SHOW_WEEKLY_COST" = "1" ] && [ -n "$weekly_cost" ] && [ "$weekly_cost" !=
     output+="$(printf "${color}")W:\$${weekly_display}$(printf "${RESET}")"
 fi
 
-# Lifetime cost
+# Lifetime cost (from ccusage)
 if [ "$SHOW_LIFETIME_COST" = "1" ] && [ -n "$lifetime_cost" ] && [ "$lifetime_cost" != "0" ]; then
     lifetime_display=$(format_cost $lifetime_cost)
     color=$(get_color_code "$COLOR_LIFETIME_COST")

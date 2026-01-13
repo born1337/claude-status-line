@@ -13,7 +13,6 @@ claude-status-line/
 ├── statusline-command.sh    # Main status line script (bash)
 ├── install.sh               # Installation script
 ├── settings.example.json    # Example Claude Code settings
-├── weekly-usage.example.json # Example tracking file structure
 ├── README.md                # Documentation
 ├── CLAUDE.md                # This file (Claude Code context)
 ├── LICENSE                  # MIT License
@@ -26,12 +25,13 @@ claude-status-line/
 - Main bash script that generates the status line
 - Receives JSON input via stdin from Claude Code
 - Outputs formatted text with ANSI colors
-- Tracks weekly costs in `~/.claude/weekly-usage.json`
+- Uses `ccusage` for weekly/lifetime cost tracking
 
 ### Key dependencies
 - `jq` - JSON parsing
 - `bc` - Arithmetic calculations
 - `git` - Branch detection (optional)
+- `ccusage` - Cost tracking (optional, install via npm)
 
 ## Common Tasks
 
@@ -59,4 +59,4 @@ echo '{"model":{"display_name":"Claude 4.5 Opus"},"workspace":{"current_dir":"/t
 
 - Status line updates every ~300ms when conversation changes
 - Keep the script fast to avoid UI lag
-- Weekly tracking uses rolling 7-day window (604800 seconds)
+- Cost data from ccusage is cached (60s default TTL) for performance
