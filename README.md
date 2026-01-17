@@ -11,6 +11,7 @@ Display real-time information while using Claude Code:
 | Element | Color | Description |
 |---------|-------|-------------|
 | Model | Blue | Current model (e.g., "Opus 4.5") |
+| Hostname | Magenta | Machine hostname (e.g., "macbook", "vps-prod") |
 | Directory | Green | Current working directory |
 | Git Branch | Cyan | Active git branch `[main]` |
 | Context Window | Color-coded | Used/max tokens with percentage (e.g., `22k/200k (11%)`) |
@@ -113,6 +114,7 @@ Edit `~/.claude/statusline.conf` directly:
 ```bash
 # Elements (1=show, 0=hide)
 SHOW_MODEL=1
+SHOW_HOSTNAME=1
 SHOW_DIRECTORY=1
 SHOW_GIT_BRANCH=1
 SHOW_CONTEXT=1
@@ -127,6 +129,7 @@ SHOW_BTC=1
 
 # Colors
 COLOR_MODEL=blue
+COLOR_HOSTNAME=magenta
 COLOR_DIRECTORY=green
 COLOR_DAILY_COST=yellow
 COLOR_BTC=yellow
@@ -163,7 +166,7 @@ Cost tracking is powered by [ccusage](https://github.com/ryoppippi/ccusage), whi
 ## Example Output
 
 ```
-Opus 4.5 | claude-status-line | [main] | 22k/200k (11%) | 3h 20m | API 23m 0s | +1453 -226 | S:$13.0 | D:$83.5 | W:$212 | L:$570 | BTC:$94,000
+Opus 4.5 | macbook | claude-status-line | [main] | 22k/200k (11%) | 3h 20m | API 23m 0s | +1453 -226 | S:$13.0 | D:$83.5 | W:$212 | L:$570 | BTC:$94,000
 ```
 
 ## Available Data Fields
