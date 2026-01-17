@@ -5,7 +5,7 @@
 # =============================================================================
 #
 # Display format:
-#   Opus 4.5   |   test   |   [main]   |   22k/178k   |   2m 30s   |   API 2.3s   |   +156 -23   |   S:$0.42   |   W:$12.50   |   L:$150.25   |   BTC:$90,310
+#   Opus 4.5   |   macbook   |   test   |   [main]   |   22k/178k   |   2m 30s   |   API 2.3s   |   +156 -23   |   S:$0.42   |   W:$12.50   |   L:$150.25   |   BTC:$90,310
 #
 # Configuration:
 #   Edit ~/.claude/statusline.conf or use: statusline-config --help
