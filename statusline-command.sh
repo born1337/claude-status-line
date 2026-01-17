@@ -41,8 +41,10 @@ SHOW_DAILY_COST=${SHOW_DAILY_COST:-1}
 SHOW_WEEKLY_COST=${SHOW_WEEKLY_COST:-1}
 SHOW_LIFETIME_COST=${SHOW_LIFETIME_COST:-1}
 SHOW_BTC=${SHOW_BTC:-1}
+SHOW_HOSTNAME=${SHOW_HOSTNAME:-1}
 
 COLOR_MODEL=${COLOR_MODEL:-blue}
+COLOR_HOSTNAME=${COLOR_HOSTNAME:-magenta}
 COLOR_DIRECTORY=${COLOR_DIRECTORY:-green}
 COLOR_GIT_BRANCH=${COLOR_GIT_BRANCH:-cyan}
 COLOR_DURATION=${COLOR_DURATION:-yellow}
@@ -254,6 +256,14 @@ if [ "$SHOW_MODEL" = "1" ]; then
     model_short=$(echo "$model_name" | sed -E 's/Claude ([0-9.]+) (Opus|Sonnet|Haiku)/\2 \1/')
     color=$(get_color_code "$COLOR_MODEL")
     output+="$(printf "${color}")${model_short}$(printf "${RESET}")"
+fi
+
+# Hostname
+if [ "$SHOW_HOSTNAME" = "1" ]; then
+    host=$(hostname -s)
+    color=$(get_color_code "$COLOR_HOSTNAME")
+    [ -n "$output" ] && output+="$SEPARATOR"
+    output+="$(printf "${color}")${host}$(printf "${RESET}")"
 fi
 
 # Directory
