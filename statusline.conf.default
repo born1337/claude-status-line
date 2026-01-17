@@ -12,6 +12,7 @@
 # ============================================================================
 
 SHOW_MODEL=1           # Model name (e.g., "Opus 4.5")
+SHOW_HOSTNAME=1        # Machine hostname (e.g., "macbook", "vps-prod")
 SHOW_DIRECTORY=1       # Current directory name
 SHOW_GIT_BRANCH=1      # Git branch [main]
 SHOW_CONTEXT=1         # Context window usage (22k/178k)
@@ -31,6 +32,7 @@ SHOW_BTC=1             # Bitcoin price (BTC:$91,234)
 # ============================================================================
 
 COLOR_MODEL=blue
+COLOR_HOSTNAME=magenta
 COLOR_DIRECTORY=green
 COLOR_GIT_BRANCH=cyan
 COLOR_DURATION=yellow
