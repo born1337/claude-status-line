@@ -38,6 +38,7 @@ claude-status-line/
 ### Testing the script
 ```bash
 echo '{"model":{"display_name":"Claude 4.5 Opus"},"workspace":{"current_dir":"/test"},"context_window":{"context_window_size":200000,"current_usage":{"input_tokens":15000,"cache_creation_input_tokens":5000,"cache_read_input_tokens":2000},"total_input_tokens":22000,"total_output_tokens":3000},"cost":{"total_cost_usd":0.55,"total_duration_ms":156000,"total_api_duration_ms":23500,"total_lines_added":156,"total_lines_removed":23},"session_id":"test-123"}' | ./statusline-command.sh
+# Output: Opus 4.5 | <hostname> | test | 22k/200k (11%) | 2m 36s | API 23.5s | +156 -23 | S:$0.550 | ...
 ```
 
 ### Adding new elements
